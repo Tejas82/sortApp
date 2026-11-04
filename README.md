@@ -28,6 +28,10 @@ flutter run --dart-define=OPENAI_API_KEY=sk-...
 
 You can also leave out the `--dart-define` and paste the key in the app's Settings.
 
+## Install on a phone without building
+
+Every push to `main` builds a signed APK with GitHub Actions and publishes it under [Releases](https://github.com/Tejas82/sortApp/releases/latest). Open that page on your Android phone, tap the `.apk`, and allow your browser to install unknown apps.
+
 ## Google Cloud setup (one time, about 10 minutes)
 
 Google sign-in on Android works only once an OAuth client matches the app's package name and signing key.
@@ -41,7 +45,8 @@ Google sign-in on Android works only once an OAuth client matches the app's pack
    Leave it in **Testing** and add your Google account (and any beta parents) under **Test users**.
 4. **Credentials → Create credentials → OAuth client ID → Android:**
    - Package name: `app.sortapp.sortapp`
-   - SHA-1: printed by `tool/bootstrap.sh` (or run `cd android && ./gradlew signingReport`)
+   - SHA-1: `99:7F:AE:21:E3:5A:B9:0C:B7:2A:5E:79:68:00:9E:A4:84:5B:57:AF`
+     (every build, local and CI, is signed with the shared prototype key in `tool/sortapp-debug.keystore`; replace it with a private key before any public release)
 5. Run the app and tap **Connect Gmail**. No `google-services.json` is needed.
 
 The Gmail scopes are *restricted*. Testing mode allows up to 100 test users; a public launch needs Google's OAuth verification and a security assessment (see the PRD's risks).

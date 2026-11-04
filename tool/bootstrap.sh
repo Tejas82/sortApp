@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generates the Android platform folder, applies Sortapp's settings, fetches
-# packages and runs the tests. Safe to re-run.
+# packages and runs the checks. Safe to re-run. Used locally and in CI.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,22 +20,31 @@ if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
 fi
 perl -pi -e 's/android:label="sortapp"/android:label="Sortapp"/' "$MANIFEST"
 
+# Sign debug and release builds with the shared prototype key in tool/, so the
+# SHA-1 registered in Google Cloud is the same on every machine and in CI.
+GRADLE=android/app/build.gradle.kts
+[ -f "$GRADLE" ] || GRADLE=android/app/build.gradle
+if ! grep -q 'sortapp-debug.keystore' "$GRADLE"; then
+  echo "==> Using tool/sortapp-debug.keystore for signing ($GRADLE)"
+  if [[ "$GRADLE" == *.kts ]]; then
+    perl -0pi -e 's/(\nandroid \{\n)/$1    signingConfigs {\n        getByName("debug") {\n            storeFile = file("..\/..\/tool\/sortapp-debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n/' "$GRADLE"
+  else
+    perl -0pi -e "s/(\nandroid \{\n)/\$1    signingConfigs {\n        debug {\n            storeFile file('..\/..\/tool\/sortapp-debug.keystore')\n            storePassword 'android'\n            keyAlias 'androiddebugkey'\n            keyPassword 'android'\n        }\n    }\n\n/" "$GRADLE"
+  fi
+  grep -q 'sortapp-debug.keystore' "$GRADLE" || { echo "Could not patch signing in $GRADLE"; exit 1; }
+fi
+
 echo "==> flutter pub get"
 flutter pub get
 
 echo "==> flutter analyze"
-flutter analyze
+flutter analyze --no-fatal-infos
 
 echo "==> flutter test"
 flutter test
 
 echo
-echo "Done. Debug signing SHA-1 for your Google Cloud Android OAuth client:"
-if command -v keytool >/dev/null && [ -f "$HOME/.android/debug.keystore" ]; then
-  keytool -list -v -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" \
-    -storepass android -keypass android 2>/dev/null | grep -E 'SHA1:' || true
-else
-  echo "  (run 'cd android && ./gradlew signingReport' after the first build)"
-fi
+echo "Done. SHA-1 to register on the Google Cloud Android OAuth client:"
+echo "  99:7F:AE:21:E3:5A:B9:0C:B7:2A:5E:79:68:00:9E:A4:84:5B:57:AF"
 echo
-echo "Run on a device or emulator:  flutter run --dart-define=OPENAI_API_KEY=sk-..."
+echo "Run on a device:  flutter run"

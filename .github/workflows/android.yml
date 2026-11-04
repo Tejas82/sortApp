@@ -1,0 +1,64 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Generate Android project, analyze and test
+        run: bash tool/bootstrap.sh
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/sortapp-0.1.${{ github.run_number }}.apk"
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sortapp-apk
+          path: dist/*.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Sortapp 0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: 'true'
+          files: dist/*.apk
+          body: |
+            Prototype build of commit ${{ github.sha }}.
+
+            Install: open this page on your Android phone, tap the .apk below, and allow your browser to install unknown apps when asked.
+            Google sign-in needs the Android OAuth client set up as described in the README (SHA-1 99:7F:AE:21:E3:5A:B9:0C:B7:2A:5E:79:68:00:9E:A4:84:5B:57:AF).
